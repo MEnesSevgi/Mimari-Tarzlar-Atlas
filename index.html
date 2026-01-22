@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>MİMARİ TARZLAR ATLASI</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mimari Tarzlar Atlası</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { 
+            --slate-blue: #2c3e50; 
+            --gold-leaf: #c5a059; 
+            --marble-white: #f8f9fa; 
+            --accent-red: #a93226; 
+        }
+
+        body { 
+            margin: 0; 
+            display: flex; 
+            height: 100vh; 
+            flex-direction: row; 
+            font-family: 'Georgia', serif; 
+            background: var(--marble-white); 
+            overflow: hidden;
+        }
+
+        #map { flex: 1; height: 100%; z-index: 1; }
+        
+        #info-panel { 
+            width: 450px; 
+            background: white; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1); 
+            z-index: 1000; 
+            overflow: hidden; 
+        }
+        
+        .header { background: var(--slate-blue); color: var(--gold-leaf); padding: 25px; text-align: center; border-bottom: 3px solid var(--gold-leaf); }
+        .header h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 2px; }
+
+        .selector-area { padding: 20px 25px; background: #f1f1f1; border-bottom: 1px solid #ddd; }
+        #style-selector { 
+            width: 100%; padding: 12px; border-radius: 4px; border: 2px solid var(--gold-leaf); 
+            font-family: 'Georgia', serif; font-size: 15px; outline: none; cursor: pointer;
+            background: white;
+        }
+
+        #content-area { padding: 25px; overflow-y: auto; flex: 1; }
+        
+        #wiki-display { animation: fadeIn 0.4s; }
+        #wiki-img { width: 100%; border-radius: 4px; margin-bottom: 15px; filter: sepia(10%); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #wiki-text { line-height: 1.7; color: #333; font-size: 15px; text-align: justify; }
+        
+        .location-tag { font-size: 11px; color: var(--gold-leaf); font-weight: bold; text-transform: uppercase; margin-bottom: 8px; display: block; letter-spacing: 1px;}
+        .translation-note { font-size: 11px; color: #888; font-style: italic; margin-top: 10px; display: block; border-top: 1px solid #eee; padding-top: 5px; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .custom-marker { background-color: var(--gold-leaf); border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.3); cursor: pointer; }
+
+        @media (max-width: 850px) {
+            body { flex-direction: column; }
+            #info-panel { width: 100%; height: 50vh; order: 2; }
+            #map { height: 50vh; flex: none; order: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="info-panel">
+    <div class="header"><h1>MİMARİ TARZLAR ATLASI</h1></div>
+
+    <div class="selector-area">
+        <select id="style-selector" onchange="selectStyle(this.value)">
+            <option value="">İncelemek İçin Bir Mimari Tarz Seçin...</option>
+        </select>
+    </div>
+
+    <div id="content-area">
+        <div id="welcome-msg">
+            <h3 style="color: var(--slate-blue)">Mimari Tarzları Keşfedin</h3>
+            <p>Dünya mimarisini şekillendiren akımları seçerek Wikipedia destekli çeviri altyapısı ile inceleyebilirsiniz.</p>
+        </div>
+
+        <div id="wiki-display" style="display:none;">
+            <span id="style-location" class="location-tag"></span>
+            <h2 id="wiki-title" style="color:var(--slate-blue); margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 10px;"></h2>
+            <img id="wiki-img" src="" alt="Görsel yükleniyor...">
+            <div id="wiki-text"></div>
+            <div id="translation-info" class="translation-note"></div>
+            <a id="wiki-link" href="#" target="_blank" style="color: var(--accent-red); font-weight: bold; display: block; margin-top: 20px; text-decoration: none; font-size: 14px;">Wikipedia Orijinal Kaynak →</a>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+   const architecturalPoints = [
+    { city: "Roma, İtalya", lat: 41.8902, lng: 12.4922, styles: [{ name: "Antik Roma Mimarisi", wiki: "Antik_Roma_mimarisi" }, { name: "Barok", wiki: "Barok_mimari" }] },
+    { city: "Atina, Yunanistan", lat: 37.971, lng: 23.725, styles: [{ name: "Antik Yunan Mimarisi", wiki: "Antik_Yunan_mimarisi" }] },
+    { city: "İstanbul, Türkiye", lat: 41.0082, lng: 28.9784, styles: [{ name: "Bizans Mimarisi", wiki: "Bizans_mimarisi" }, { name: "Osmanlı Mimarisi", wiki: "Osmanlı_mimarisi" }] },
+    { city: "Paris, Fransa", lat: 48.8566, lng: 2.3522, styles: [{ name: "Gotik Mimari", wiki: "Gotik_mimari" }] },
+    { city: "Mexico City, Meksika", lat: 19.432, lng: -99.133, styles: [{ name: "Aztek Mimarisi", wiki: "Aztec_architecture" }, { name: "Churrigueresque", wiki: "Churrigueresque" }] },
+    { city: "Viyana, Avusturya", lat: 48.208, lng: 16.373, styles: [{ name: "Art Nouveau", wiki: "Art_Nouveau" }, { name: "Rokoko", wiki: "Rokoko" }] },
+    { city: "Lizbon, Portekiz", lat: 38.722, lng: -9.139, styles: [{ name: "Manuelin", wiki: "Manuelin" }] },
+    { city: "Miami, ABD", lat: 25.7617, lng: -80.1918, styles: [{ name: "Art Deco", wiki: "Art_Deco" }] },
+    { city: "Jaipur, Hindistan", lat: 26.912, lng: 75.787, styles: [{ name: "Hint-İslam Mimarisi", wiki: "Babür_mimarisi" }] },
+    { city: "Prag, Çek Cumhuriyeti", lat: 50.0755, lng: 14.4378, styles: [{ name: "Kübizm (Mimari)", wiki: "Kübizm" }, { name: "Romanesk", wiki: "Romanesk_mimari" }] },
+    { city: "Marakeş, Fas", lat: 31.629, lng: -7.981, styles: [{ name: "Mağrip Mimarisi", wiki: "Mağrip_mimarisi" }] },
+   
+    { city: "Seul, Güney Kore", lat: 37.566, lng: 126.978, styles: [{ name: "Kore Mimarisi", wiki: "Kore_mimarisi" }] },
+   
+    { city: "Londra, İngiltere", lat: 51.5074, lng: -0.1278, styles: [{ name: "Victoria Dönemi Mimarisi", wiki: "Victoria_mimarisi" }, { name: "Brütalizm", wiki: "Brütalizm" }, { name: "Tudor", wiki: "Tudor_mimarisi" }] },
+    { city: "Brasília, Brezilya", lat: -15.794, lng: -47.882, styles: [{ name: "Modern Brezilya Mimarisi", wiki: "Oscar_Niemeyer" }] },
+    { city: "Singapur", lat: 1.3521, lng: 103.8198, styles: [{ name: "Biyofilik Tasarım", wiki: "Biyofilik_tasarım" }, { name: "Sürdürülebilir", wiki: "Sürdürülebilir_mimari" }] },
+    { city: "Chicago, ABD", lat: 41.8781, lng: -87.6298, styles: [{ name: "Gökdelen Mimarisi", wiki: "Gökdelen" }, { name: "Prairie", wiki: "Prairie_School" }] },
+    { city: "Floransa, İtalya", lat: 43.7696, lng: 11.2558, styles: [{ name: "Rönesans", wiki: "Santa Maria delle Grazie (Milano)" }] },
+    { city: "Kudüs", lat: 31.778, lng: 35.235, styles: [{ name: "İslam Mimarisi", wiki: "Islamic architecture" }] },
+    
+  
+    { city: "Pasadena, ABD", lat: 34.1478, lng: -118.1445, styles: [{ name: "Craftsman", wiki: "American_Craftsman" }] },
+
+    { city: "Bilbao, İspanya", lat: 43.2630, lng: -2.9350, styles: [{ name: "Dekonstrüktivizm", wiki: "Dekonstrüktivizm" }] },
+    { city: "Washington D.C., ABD", lat: 38.9072, lng: -77.0369, styles: [{ name: "Neoklasik", wiki: "Neoklasik_mimari" }] },
+    { city: "San Antonio, ABD", lat: 29.4241, lng: -98.4936, styles: [{ name: "Mission", wiki: "Mission_Revival_architecture" }] },
+    { city: "Kyoto, Japonya", lat: 35.0116, lng: 135.7681, styles: [{ name: "Geleneksel Japon", wiki: "Japon_mimarisi" }] },
+    { city: "Detroit, ABD", lat: 42.3314, lng: -83.0458, styles: [{ name: "Endüstriyel", wiki: "Endüstriyel_mimari" }] },
+ 
+    { city: "Pekin, Çin", lat: 39.9042, lng: 116.4074, styles: [{ name: "Geleneksel Çin", wiki: "Çin_mimarisi" }] },
+
+    { city: "Portland, ABD", lat: 45.5152, lng: -122.6784, styles: [{ name: "Postmodern", wiki: "Postmodern_mimari" }] },
+    { city: "Provincetown, ABD", lat: 42.0581, lng: -70.1786, styles: [{ name: "Cape Cod", wiki: "Cape_Cod_(house)" }] },
+   
+     { city: "Isfahan, İran", lat: 32.66333732413991, lng: 51.66503752044512, styles: [{ name: "Selçuklu mimarisi", wiki: "Selçuklu mimarisi" }] }
+    
+];
+    let allStyles = [];
+    architecturalPoints.forEach(p => {
+        p.styles.forEach(s => {
+            allStyles.push({ ...s, city: p.city, lat: p.lat, lng: p.lng });
+        });
+    });
+    allStyles.sort((a, b) => a.name.localeCompare(b.name));
+
+    const map = L.map('map', ).setView([30, 18], 3);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+    const selector = document.getElementById('style-selector');
+    allStyles.forEach((s, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = s.name;
+        selector.appendChild(opt);
+    });
+
+    architecturalPoints.forEach(p => {
+        const marker = L.marker([p.lat, p.lng], {
+            icon: L.divIcon({ className: 'custom-marker', iconSize: [15, 15] })
+        }).addTo(map);
+        marker.on('click', () => {
+            const relatedStyle = allStyles.find(s => s.city === p.city);
+            if(relatedStyle) {
+                selector.value = allStyles.indexOf(relatedStyle);
+                selectStyle(selector.value);
+            }
+        });
+    });
+
+    function selectStyle(idx) {
+        if(idx === "") return;
+        const style = allStyles[idx];
+        map.flyTo([style.lat, style.lng], 9);
+        loadWiki(style);
+    }
+
+    // Çeviri Fonksiyonu
+    async function translateText(text) {
+        try {
+            const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|tr`);
+            const data = await res.json();
+            return data.responseData.translatedText;
+        } catch (e) {
+            return text; // Hata olursa orijinali dön
+        }
+    }
+
+    async function loadWiki(item) {
+        document.getElementById('welcome-msg').style.display = 'none';
+        const wikiDiv = document.getElementById('wiki-display');
+        wikiDiv.style.display = 'block';
+
+        document.getElementById('wiki-title').textContent = item.name;
+        document.getElementById('style-location').textContent = "Bölge: " + item.city;
+        document.getElementById('wiki-text').innerHTML = "<i>Arşivler taranıyor...</i>";
+        document.getElementById('translation-info').textContent = "";
+        document.getElementById('wiki-img').style.display = 'none';
+
+        const wikiQuery = encodeURIComponent(item.wiki);
+
+        try {
+            // Önce Türkçe Wikipedia dene
+            let res = await fetch(`https://tr.wikipedia.org/api/rest_v1/page/summary/${wikiQuery}`);
+            let isTranslated = false;
+            
+            if (!res.ok) {
+                // Türkçe yoksa İngilizce çek ve çevir
+                res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${wikiQuery}`);
+                const data = await res.json();
+                
+                document.getElementById('wiki-text').innerHTML = "<i>Türkçe kaynak bulunamadı, çeviriliyor...</i>";
+                const translated = await translateText(data.extract);
+                
+                document.getElementById('wiki-text').innerHTML = translated;
+                document.getElementById('translation-info').textContent = "Bilgi İngilizce kaynaktan otomatik olarak Türkçeye çevrilmiştir.";
+                updateCommonFields(data);
+            } else {
+                // Türkçe varsa direkt göster
+                const data = await res.json();
+                document.getElementById('wiki-text').innerHTML = data.extract;
+                document.getElementById('translation-info').textContent = "Kaynak: Türkçe Wikipedia";
+                updateCommonFields(data);
+            }
+        } catch (e) {
+            document.getElementById('wiki-text').textContent = "Bilgiye şu an ulaşılamıyor.";
+        }
+    }
+
+    function updateCommonFields(data) {
+        if(data.thumbnail) {
+            document.getElementById('wiki-img').src = data.thumbnail.source;
+            document.getElementById('wiki-img').style.display = 'block';
+        }
+        document.getElementById('wiki-link').href = data.content_urls?.desktop?.page || '#';
+        document.getElementById('content-area').scrollTop = 0;
+    }
+</script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
