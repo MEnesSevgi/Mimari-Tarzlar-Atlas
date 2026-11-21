@@ -154,7 +154,7 @@
     allStyles.sort((a, b) => a.name.localeCompare(b.name));
 
     const map = L.map('map', ).setView([30, 18], 3);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     const selector = document.getElementById('style-selector');
     allStyles.forEach((s, idx) => {
